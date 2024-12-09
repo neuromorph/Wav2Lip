@@ -12,6 +12,7 @@ import traceback
 import configparser
 import json
 import pickle
+# import msgpack
 
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -30,9 +31,14 @@ wav2lip_batch_size = config["Wav2Lip"].getint("wav2lip_batch_size")
 # print("pads: ", pads)
 # print("box: ", box)
 
-facepickle = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.pickle'
-face_det_results = []
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+facepickle = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.pickle'
+facejson = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.json'
+facenpy = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.npy'
+facemsgpk = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.msgpk'
+face_det_results = []
+print("facepickle: ", facenpy)
+
 
 if os.path.isfile(avatar) and avatar.split('.')[1] in ['jpg', 'png', 'jpeg']:
 	static = True
@@ -83,15 +89,12 @@ def face_detect(images):
 
 	boxes = np.array(results)
 	if not nosmooth: boxes = get_smoothened_boxes(boxes, T=5)
-	results = [[image[y1: y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip(images, boxes)]
-
-	# fd_pickle[avatar] = results
-	print("Write FD to pickle")
-	with open(facepickle, "wb") as fp: 
-		pickle.dump(results, fp)
+	
+	# results = [[image[y1:y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip(images, boxes)]
 
 	del detector
-	return results
+	# return results
+	return boxes
 
 
 def datagen(frames, mels):
@@ -101,21 +104,33 @@ def datagen(frames, mels):
 	try:
 		if(face_det_results == []):
 			print("FD results not available")
-			if os.path.isfile(facepickle):
-				print("Get FD from pickle")
-				with open(facepickle, "rb") as fp: 
-					face_det_results = pickle.load(fp)
+			# if os.path.isfile(facepickle):
+			# 	print("Get FD from pickle")
+			# 	with open(facepickle, "rb") as fp: 
+			# 		face_det_results = pickle.load(fp)
+			if False: # os.path.isfile(facenpy):
+				print("Get FD from npy")
+				boxes = np.load(facenpy)
+				face_det_results = [[image[y1:y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip(frames, boxes)]
 			else:
 				print("Generate new FD results")
 				if box[0] == -1:
 					if not static:
-						face_det_results = face_detect(frames) # BGR2RGB for CNN face detection
+						boxes = face_detect(frames) # BGR2RGB for CNN face detection
+						face_det_results = [[image[y1:y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip(frames, boxes)]
 					else:
-						face_det_results = face_detect([frames[0]])
+						boxes = face_detect([frames[0]])
+						face_det_results = [[image[y1:y2, x1:x2], (y1, y2, x1, x2)] for image, (x1, y1, x2, y2) in zip([frames[0]], boxes)]
 				else:
 					print('Using the specified bounding box instead of face detection...')
 					y1, y2, x1, x2 = box
-					face_det_results = [[f[y1: y2, x1:x2], (y1, y2, x1, x2)] for f in frames]
+					face_det_results = [[f[y1:y2, x1:x2], (y1, y2, x1, x2)] for f in frames]
+					boxes = box
+				# print("Write FD results to pickle")
+				# with open(facepickle, "wb") as fp: 
+				# 	pickle.dump(face_det_results, fp)
+				print("Write FD results to npy")
+				np.save(facenpy, boxes)
 		print("DATAGEN frames mels", len(frames), len(mels))
 		print("DATAGEN fd results", len(face_det_results))
 		for i, m in enumerate(mels):
