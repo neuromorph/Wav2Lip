@@ -37,7 +37,7 @@ facejson = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.'
 facenpy = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.npy'
 facemsgpk = 'fd_results/' + config["Wav2Lip"]["avatar_path"].split('/')[-1] + '.' + device + '.msgpk'
 face_det_results = []
-print("facepickle: ", facenpy)
+# print("facepickle: ", facenpy)
 
 
 if os.path.isfile(avatar) and avatar.split('.')[1] in ['jpg', 'png', 'jpeg']:
